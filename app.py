@@ -140,18 +140,18 @@ if st.session_state.role in ["Director", "Coordinator"]:
             unique_res = res_df.sort_values('timestamp', ascending=False).drop_duplicates('paper_title')
             
             # 2. RESEARCH KPI METRICS
-            c1, c2, c3, c4 = st.columns(4)
+           c1, c2, c3, c4, c5 = st.columns(5)
             
-            # Filter unique counts for requested analytics
             count_pub = len(unique_res[unique_res['status'] == "Published"])
+            count_acc = len(unique_res[unique_res['status'] == "Accepted"]) # New Status
             count_rev = len(unique_res[unique_res['status'] == "Under Review"])
             count_apc = len(unique_res[unique_res['status'] == "Pending APC"])
             
             c1.metric("✅ Published", count_pub)
-            c2.metric("🔍 Under Review", count_rev)
-            c3.metric("💳 Pending APC", count_apc)
-            c4.metric("📚 Total Research Works", len(unique_res))
-            
+            c2.metric("🎉 Accepted", count_acc)
+            c3.metric("🔍 Under Review", count_rev)
+            c4.metric("💳 Pending APC", count_apc)
+            c5.metric("📚 Total Works", len(unique_res))
             st.divider()
             
             # 3. DIRECTOR'S APC APPROVAL PANEL
