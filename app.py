@@ -201,7 +201,6 @@ if not full_res.empty:
     my_res = full_res[full_res['staff_id'] == current_user_id]
     
     if not my_res.empty:
-        st.subheader("Your Submission History")
         st.dataframe(my_res, use_container_width=True)
     else:
         st.info(f"No records found for Staff ID: {current_user_id}")
