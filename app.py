@@ -5,24 +5,30 @@ from datetime import datetime
 import hashlib
 from io import BytesIO
 
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="UNAM JEDS Dashboard", layout="wide", page_icon="🏫")
 
+# --- SCROLL FIX & CUSTOM STYLING ---
 st.markdown(
     """
     <style>
     .main .block-container {
         overflow-y: auto;
         height: auto;
+        padding-top: 2rem;
     }
     html, body {
         overflow: auto;
+    }
+    /* Make metrics stand out */
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem;
+        color: #003366;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
-
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="UNAM JEDS Director Dashboard", layout="wide", page_icon="📝")
 
 # --- DATABASE CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -40,7 +46,7 @@ def load_data(sheet_name):
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Campus_Report')
+        df.to_excel(writer, index=False, sheet_name='Report')
     return output.getvalue()
 
 # --- OPTIONS ---
@@ -51,23 +57,21 @@ DEPARTMENTS = [
     "Civil and Mining Engineering",
     "Management & Administration"
 ]
-ARTICLE_TYPES = ["Journal Article (Peer Reviewed)", "Conference Paper", "Book Chapter", "Technical Report"]
+ARTICLE_TYPES = ["Journal Article (Peer Reviewed)", "Conference Paper", "Book Chapter", "Technical Report", "Review Paper"]
 
-# --- SIDEBAR LOGO & INFO ---
+# --- SIDEBAR LOGO ---
 try:
-    # This looks for the file you uploaded to GitHub
     st.sidebar.image("Logo_UNAM_Namibia.png", use_container_width=True)
 except:
-    st.sidebar.warning("Logo file not found in repository. Check the filename!")
-
+    st.sidebar.warning("Logo file not found in repository.")
 
 # --- SESSION STATE ---
 if 'logged_in' not in st.session_state:
     st.session_state.update({"logged_in": False, "user": None, "role": None, "name": None, "dept": None, "title": None})
 
-# --- AUTHENTICATION & REGISTRATION ---
+# --- AUTHENTICATION ---
 if not st.session_state.logged_in:
-    st.title("UNAM JEDS Engineering")
+    st.title("UNAM School of Engineering")
     auth_mode = st.tabs(["Login", "Staff Registration"])
     
     with auth_mode[0]:
@@ -88,7 +92,6 @@ if not st.session_state.logged_in:
 
     with auth_mode[1]:
         with st.form("reg_form"):
-            st.info("Registration Key required from the Director's Office.")
             c1, c2 = st.columns([1, 3])
             r_title = c1.selectbox("Title", TITLES)
             r_name = c2.text_input("Full Name (Surname First)")
@@ -96,119 +99,113 @@ if not st.session_state.logged_in:
             r_dept = st.selectbox("Department", DEPARTMENTS)
             r_pwd = st.text_input("Set Password", type="password")
             r_key = st.text_input("Security Key", type="password")
-            
             if st.form_submit_button("Register"):
-                role = None
-                if r_key == "JEDSACA2026": role = "Academic"
-                elif r_key == "JEDSSUP2026": role = "Maintenance"
-                elif r_key == "JEDSCOR2026": role = "Coordinator" # New Role
-                
+                role = "Academic" if r_key == "JEDSACA2026" else "Maintenance" if r_key == "JEDSSUP2026" else "Coordinator" if r_key == "JEDSCOR2026" else None
                 if role:
                     users = load_data("staff_registry")
                     new_user = pd.DataFrame([{"staff_id": r_id, "title": r_title, "full_name": r_name, "role": role, "password": hash_password(r_pwd), "department": r_dept}])
                     conn.update(worksheet="staff_registry", data=pd.concat([users, new_user], ignore_index=True))
-                    st.success(f"Registered as {role}! You can now login.")
-                else: st.error("Invalid Security Key.")
+                    st.success(f"Registered as {role}!")
+                else: st.error("Invalid Key.")
     st.stop()
 
-# --- SIDEBAR ---
-st.sidebar.title("JEDS Portal")
-st.sidebar.write(f"**{st.session_state.title} {st.session_state.name}**")
-st.sidebar.write(f"*Role: {st.session_state.role}*")
+# --- SIDEBAR LOGGED IN ---
+st.sidebar.write(f"**User:** {st.session_state.title} {st.session_state.name}")
+st.sidebar.write(f"**Dept:** {st.session_state.dept}")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.rerun()
 
-# --- ROLE: DIRECTOR & COORDINATOR ---
+# --- MODULE: DIRECTOR & COORDINATOR ---
 if st.session_state.role in ["Director", "Coordinator"]:
-    st.title(f"📊 School Oversight Dashboard")
+    st.title(f"📊 {st.session_state.role} Oversight")
     
-    # Define tabs based on role
     if st.session_state.role == "Director":
         tabs = st.tabs(["Research Analytics", "Maintenance Audit"])
-        tab_res = tabs[0]
-        tab_maint = tabs[1]
+        t_res, t_maint = tabs[0], tabs[1]
     else:
-        tabs = st.tabs(["Research Analytics"])
-        tab_res = tabs[0]
-        tab_maint = None # Coordinators don't get the maintenance tab
+        t_res, t_maint = st.tabs(["Research Analytics"])[0], None
 
-    # --- RESEARCH TAB (Both Director & Coordinator) ---
-    with tab_res:
+    with t_res:
         res_df = load_data("research_status")
         m1, m2, m3 = st.columns(3)
         m1.metric("Total Papers", len(res_df))
         m2.metric("Published", len(res_df[res_df['status'] == "Published"]))
         m3.metric("Pending APCs", len(res_df[res_df['director_approval'] == "Pending"]))
         
-        if not res_df.empty:
-            st.subheader("Departmental Publications")
-            #chart_data = res_df[res_df['status'] == "Published"].groupby('department').size().reset_index(name='Counts')
-            #st.bar_chart(data=chart_data, x='department', y='Counts')
-
-        search_dept = st.selectbox("Filter by Department", ["All"] + DEPARTMENTS)
-        display_df = res_df if search_dept == "All" else res_df[res_df['department'] == search_dept]
+        dept_filter = st.selectbox("View Department", ["All"] + DEPARTMENTS)
+        display_df = res_df if dept_filter == "All" else res_df[res_df['department'] == dept_filter]
         st.dataframe(display_df, use_container_width=True)
-        
-        if st.session_state.role == "Director":
-            pending = res_df[res_df['director_approval'] == "Pending"]
-            if not pending.empty:
-                st.subheader("💳 Financial Approvals")
-                target = st.selectbox("Select Project", pending['paper_title'].tolist())
-                if st.button("Approve APC"):
-                    res_df.loc[res_df['paper_title'] == target, 'director_approval'] = "Approved"
-                    conn.update(worksheet="research_status", data=res_df)
-                    st.rerun()
-        
-        st.download_button("📥 Export Research", data=to_excel(res_df), file_name="Research_Report.xlsx")
 
-    # --- MAINTENANCE TAB (Director Only) ---
-    if tab_maint is not None:
-        with tab_maint:
-            st.subheader("Campus Maintenance Oversight")
+    if t_maint:
+        with t_maint:
             m_df = load_data("maintenance_tickets")
-            
-            c1, c2 = st.columns(2)
-            c1.metric("Total Tickets", len(m_df))
-            c2.metric("Resolved", len(m_df[m_df['status'] == "Resolved"]))
-            
             st.dataframe(m_df, use_container_width=True)
-            st.download_button("📥 Export Maintenance Logs", data=to_excel(m_df), file_name="Maintenance_Audit.xlsx")
 
-# --- ROLE: ACADEMIC STAFF ---
+# --- MODULE: ACADEMIC STAFF (NEW TABBED VIEW) ---
 elif st.session_state.role == "Academic":
-    st.title("📖 Staff Research Portal")
-    with st.form("res"):
-        t = st.text_input("Paper Title")
-        at = st.selectbox("Article Type", ARTICLE_TYPES)
-        s = st.selectbox("Status", ["Draft", "Under Review", "Pending APC", "Published"])
-        a = st.number_input("APC Amount (N$)", min_value=0)
-        if st.form_submit_button("Submit Record"):
-            old = load_data("research_status")
-            new = pd.DataFrame([{
-                "staff_id": st.session_state.user, "full_name": f"{st.session_state.title} {st.session_state.name}",
-                "department": st.session_state.dept, "paper_title": t, "article_type": at,
-                "status": s, "apc_amount": a, "director_approval": "Pending" if s == "Pending APC" else "N/A",
-                "timestamp": datetime.now().strftime("%Y-%m-%d")
-            }])
-            conn.update(worksheet="research_status", data=pd.concat([old, new], ignore_index=True))
-            st.success("Research status updated.")
+    st.title("📖 Academic Staff Portal")
+    
+    # Create Tabs for Academic Staff
+    tab_registry, tab_fault = st.tabs(["Research Registry", "Report Maintenance Fault"])
+    
+    with tab_registry:
+        st.subheader("Register / Update Your Research")
+        with st.form("research_reg"):
+            p_title = st.text_input("Research/Paper Title")
+            p_type = st.selectbox("Article Type", ARTICLE_TYPES)
+            p_status = st.selectbox("Current Status", ["Draft", "Under Review", "Pending APC", "Published"])
+            p_apc = st.number_input("APC Amount Requested (N$)", min_value=0)
+            
+            if st.form_submit_button("Submit Record"):
+                old = load_data("research_status")
+                new = pd.DataFrame([{
+                    "staff_id": st.session_state.user, 
+                    "full_name": f"{st.session_state.title} {st.session_state.name}",
+                    "department": st.session_state.dept, "paper_title": p_title, 
+                    "article_type": p_type, "status": p_status, "apc_amount": p_apc, 
+                    "director_approval": "Pending" if p_status == "Pending APC" else "N/A",
+                    "timestamp": datetime.now().strftime("%Y-%m-%d")
+                }])
+                conn.update(worksheet="research_status", data=pd.concat([old, new], ignore_index=True))
+                st.success("Research status successfully recorded.")
 
-# --- ROLE: MAINTENANCE MANAGER ---
+        st.divider()
+        st.subheader("Your Submission History")
+        full_res = load_data("research_status")
+        # Ensure staff_id comparison is clean
+        my_res = full_res[full_res['staff_id'].astype(str) == str(st.session_state.user)]
+        st.dataframe(my_res, use_container_width=True)
+
+    with tab_fault:
+        st.subheader("Report Campus Maintenance Fault")
+        with st.form("staff_fault"):
+            f_loc = st.text_input("Exact Location (Room/Block)")
+            f_desc = st.text_area("Detailed Description of Fault")
+            if st.form_submit_button("Submit Fault Report"):
+                m_old = load_data("maintenance_tickets")
+                new_t = pd.DataFrame([{
+                    "ticket_id": f"JEDS-{datetime.now().strftime('%M%S')}", 
+                    "reporter": f"{st.session_state.title} {st.session_state.name}", 
+                    "location": f_loc, "fault_description": f_desc, "status": "Open", 
+                    "manager_remarks": "", "date_reported": datetime.now().strftime("%Y-%m-%d")
+                }])
+                conn.update(worksheet="maintenance_tickets", data=pd.concat([m_old, new_t], ignore_index=True))
+                st.success("Fault report sent to Maintenance Manager.")
+
+# --- MODULE: MAINTENANCE MANAGER ---
 elif st.session_state.role == "Maintenance":
-    st.title("🔧 Maintenance Management")
+    st.title("🔧 Maintenance Manager")
     m_df = load_data("maintenance_tickets")
     st.dataframe(m_df[m_df['status'] != "Resolved"], use_container_width=True)
-    # Status update logic...
-
-# --- SHARED: FAULT REPORTING ---
-st.sidebar.divider()
-if st.sidebar.checkbox("Report a Fault"):
-    with st.form("f"):
-        l = st.text_input("Location")
-        d = st.text_area("Fault Detail")
-        if st.form_submit_button("Report"):
-            m_old = load_data("maintenance_tickets")
-            new_t = pd.DataFrame([{"ticket_id": f"JEDS-{datetime.now().strftime('%M%S')}", "reporter": st.session_state.name, "location": l, "fault_description": d, "status": "Open", "date_reported": datetime.now().strftime("%Y-%m-%d")}])
-            conn.update(worksheet="maintenance_tickets", data=pd.concat([m_old, new_t], ignore_index=True))
-            st.success("Fault Reported.")
+    with st.expander("Update Ticket Status"):
+        open_jobs = m_df[m_df['status'] != "Resolved"]
+        if not open_jobs.empty:
+            t_id = st.selectbox("Select Ticket", open_jobs['ticket_id'].tolist())
+            n_s = st.selectbox("New Status", ["In-Progress", "Awaiting Parts", "Resolved"])
+            rem = st.text_area("Manager Remarks")
+            if st.button("Update"):
+                m_df.loc[m_df['ticket_id'] == t_id, 'status'] = n_s
+                m_df.loc[m_df['ticket_id'] == t_id, 'manager_remarks'] = rem
+                conn.update(worksheet="maintenance_tickets", data=m_df)
+                st.rerun()
