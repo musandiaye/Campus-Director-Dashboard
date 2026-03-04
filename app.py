@@ -152,6 +152,7 @@ if st.session_state.role in ["Director", "Coordinator"]:
             c3.metric("🔍 Under Review", count_rev)
             c4.metric("💳 Pending APC", count_apc)
             c5.metric("📚 Total Works", len(unique_res))
+        
             st.divider()
             
             # 3. DIRECTOR'S APC APPROVAL PANEL
