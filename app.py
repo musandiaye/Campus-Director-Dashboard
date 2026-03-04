@@ -188,15 +188,23 @@ elif st.session_state.role == "Academic":
         # Reload live data for the history table
         full_res = load_data("research_status")
         
-        if not full_res.empty:
-            # Filter to show only the logged-in user's work
-            my_res = full_res[full_res['staff_id'].astype(str) == str(st.session_state.user)]
-            if not my_res.empty:
-                st.dataframe(my_res, use_container_width=True)
-            else:
-                st.info("No research records found for your Staff ID.")
-        else:
-            st.info("The research registry is currently empty.")
+       # --- Updated History Filtering ---
+if not full_res.empty:
+    # 1. Clean the data: Convert column to string and strip spaces
+    full_res['staff_id'] = full_res['staff_id'].astype(str).str.strip()
+    
+    # 2. Clean the session variable
+    current_user = str(st.session_state.user).strip()
+    
+    # 3. Filter
+    my_res = full_res[full_res['staff_id'] == current_user]
+    
+    if not my_res.empty:
+        st.dataframe(my_res, use_container_width=True)
+    else:
+        # Debugging info (Only shows if no match is found)
+        st.info(f"Checking records for ID: '{current_user}'")
+        st.warning("No records matched. Please ensure your Staff ID in the 'staff_registry' matches the 'research_status' sheet exactly.")
 
     with tab_fault:
         # (Rest of your maintenance fault code remains here)
