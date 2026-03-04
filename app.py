@@ -42,8 +42,7 @@ ARTICLE_TYPES = [
     "Journal Article (Peer Reviewed)", 
     "Conference Paper", 
     "Book Chapter", 
-    "Technical Report", 
-    "Review Paper"
+    "Technical Report"
 ]
 
 # --- SESSION STATE INITIALIZATION ---
