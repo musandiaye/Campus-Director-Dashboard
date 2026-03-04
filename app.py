@@ -5,6 +5,22 @@ from datetime import datetime
 import hashlib
 from io import BytesIO
 
+
+st.markdown(
+    """
+    <style>
+    .main .block-container {
+        overflow-y: auto;
+        height: auto;
+    }
+    html, body {
+        overflow: auto;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="UNAM JEDS Director Dashboard", layout="wide", page_icon="📝")
 
