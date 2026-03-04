@@ -158,17 +158,30 @@ elif st.session_state.role == "Academic":
             p_apc = st.number_input("APC Amount Requested (N$)", min_value=0)
             
             if st.form_submit_button("Submit Record"):
-                old = load_data("research_status")
-                new = pd.DataFrame([{
-                    "staff_id": st.session_state.user, 
-                    "full_name": f"{st.session_state.title} {st.session_state.name}",
-                    "department": st.session_state.dept, "paper_title": p_title, 
-                    "article_type": p_type, "status": p_status, "apc_amount": p_apc, 
-                    "director_approval": "Pending" if p_status == "Pending APC" else "N/A",
-                    "timestamp": datetime.now().strftime("%Y-%m-%d")
-                }])
-                conn.update(worksheet="research_status", data=pd.concat([old, new], ignore_index=True))
-                st.success("Research status successfully recorded.")
+            # 1. Get current data
+            old = load_data("research_status")
+            
+            # 2. Create new entry
+            new_entry = pd.DataFrame([{
+                "staff_id": st.session_state.user, 
+                "full_name": f"{st.session_state.title} {st.session_state.name}",
+                "department": st.session_state.dept, 
+                "paper_title": p_title, 
+                "article_type": p_type, 
+                "status": p_status, 
+                "apc_amount": p_apc, 
+                "director_approval": "Pending" if p_status == "Pending APC" else "N/A",
+                "timestamp": datetime.now().strftime("%Y-%m-%d")
+            }])
+            
+            # 3. Update the sheet
+            updated_df = pd.concat([old, new_entry], ignore_index=True)
+            conn.update(worksheet="research_status", data=updated_df)
+            
+            # 4. FORCE REFRESH: Clear cache and rerun to show new history
+            st.cache_data.clear() 
+            st.success("Research status successfully recorded!")
+            st.rerun() # This forces the app to restart and pull the new data
 
         st.divider()
         st.subheader("Your Submission History")
