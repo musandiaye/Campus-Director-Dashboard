@@ -103,45 +103,55 @@ if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.rerun()
 
-# --- ROLE: DIRECTOR & COORDINATOR SHARED VIEW ---
+# --- ROLE: DIRECTOR & COORDINATOR ---
 if st.session_state.role in ["Director", "Coordinator"]:
-    st.title(f"🏫 School Research Oversight ({st.session_state.role})")
+    st.title(f"📊 School Oversight Dashboard")
     
-    res_df = load_data("research_status")
-    
-    # KPI Metrics
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total School Papers", len(res_df))
-    col2.metric("Published", len(res_df[res_df['status'] == "Published"]))
-    col3.metric("Pending APCs", len(res_df[res_df['director_approval'] == "Pending"]))
-    
-    st.divider()
-    
-    # Department Filter
-    search_dept = st.selectbox("Filter by Department", ["All"] + DEPARTMENTS)
-    display_df = res_df if search_dept == "All" else res_df[res_df['department'] == search_dept]
-    st.dataframe(display_df, use_container_width=True)
-    
-    # Exclusive Director Actions (Approvals)
+    # Define tabs based on role
     if st.session_state.role == "Director":
-        pending = res_df[res_df['director_approval'] == "Pending"]
-        if not pending.empty:
-            st.subheader("💳 Financial Approvals (Director Only)")
-            target = st.selectbox("Select Paper for APC Approval", pending['paper_title'].tolist())
-            if st.button("Approve Funding"):
-                res_df.loc[res_df['paper_title'] == target, 'director_approval'] = "Approved"
-                conn.update(worksheet="research_status", data=res_df)
-                st.rerun()
-                
-    st.download_button("📥 Download School Research Report", data=to_excel(res_df), file_name="School_Research_Full.xlsx")
-    
-    
-    if st.session_state.role == "Director":
-        with tab2:
+        tabs = st.tabs(["Research Analytics", "Maintenance Audit"])
+        tab_res = tabs[0]
+        tab_maint = tabs[1]
+    else:
+        tabs = st.tabs(["Research Analytics"])
+        tab_res = tabs[0]
+        tab_maint = None # Coordinators don't get the maintenance tab
+
+    # --- RESEARCH TAB (Both Director & Coordinator) ---
+    with tab_res:
+        res_df = load_data("research_status")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Papers", len(res_df))
+        m2.metric("Published", len(res_df[res_df['status'] == "Published"]))
+        m3.metric("Pending APCs", len(res_df[res_df['director_approval'] == "Pending"]))
+        
+        if not res_df.empty:
+            st.subheader("Departmental Publications")
+            chart_data = res_df[res_df['status'] == "Published"].groupby('department').size().reset_index(name='Counts')
+            st.bar_chart(data=chart_data, x='department', y='Counts')
+
+        search_dept = st.selectbox("Filter by Department", ["All"] + DEPARTMENTS)
+        display_df = res_df if search_dept == "All" else res_df[res_df['department'] == search_dept]
+        st.dataframe(display_df, use_container_width=True)
+        
+        if st.session_state.role == "Director":
+            pending = res_df[res_df['director_approval'] == "Pending"]
+            if not pending.empty:
+                st.subheader("💳 Financial Approvals")
+                target = st.selectbox("Select Project", pending['paper_title'].tolist())
+                if st.button("Approve APC"):
+                    res_df.loc[res_df['paper_title'] == target, 'director_approval'] = "Approved"
+                    conn.update(worksheet="research_status", data=res_df)
+                    st.rerun()
+        
+        st.download_button("📥 Export Research", data=to_excel(res_df), file_name="Research_Report.xlsx")
+
+    # --- MAINTENANCE TAB (Director Only) ---
+    if tab_maint is not None:
+        with tab_maint:
             st.subheader("Campus Maintenance Oversight")
             m_df = load_data("maintenance_tickets")
             
-            # Maintenance Summary Metrics
             c1, c2 = st.columns(2)
             c1.metric("Total Tickets", len(m_df))
             c2.metric("Resolved", len(m_df[m_df['status'] == "Resolved"]))
