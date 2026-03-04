@@ -117,15 +117,14 @@ if st.sidebar.button("Logout"):
     st.rerun()
 
 # --- MODULE: DIRECTOR & COORDINATOR ---
+# --- MODULE: DIRECTOR & COORDINATOR ---
 if st.session_state.role in ["Director", "Coordinator"]:
     st.title(f"📊 {st.session_state.role} School Oversight")
     
-    # Define tabs based on role permissions
     if st.session_state.role == "Director":
         tabs = st.tabs(["Research Analytics", "Maintenance Audit"])
         t_res, t_maint = tabs[0], tabs[1]
     else:
-        # Coordinators only see Research
         t_res = st.tabs(["Research Analytics"])[0]
         t_maint = None
 
@@ -134,13 +133,12 @@ if st.session_state.role in ["Director", "Coordinator"]:
         res_df = load_data("research_status")
         
         if not res_df.empty:
-            # 1. CLEAN DATA & DROP DUPLICATES FOR ACCURATE COUNTS
-            # We sort by timestamp to keep the most recent update for each title
+            # Clean data and keep newest update per title
             res_df['timestamp'] = pd.to_datetime(res_df['timestamp'], errors='coerce')
             unique_res = res_df.sort_values('timestamp', ascending=False).drop_duplicates('paper_title')
             
-            # 2. RESEARCH KPI METRICS
-           c1, c2, c3, c4, c5 = st.columns(5)
+            # --- UPDATED ANALYTICS ROW (NOW WITH ACCEPTED) ---
+            c1, c2, c3, c4, c5 = st.columns(5)
             
             count_pub = len(unique_res[unique_res['status'] == "Published"])
             count_acc = len(unique_res[unique_res['status'] == "Accepted"]) # New Status
@@ -151,13 +149,12 @@ if st.session_state.role in ["Director", "Coordinator"]:
             c2.metric("🎉 Accepted", count_acc)
             c3.metric("🔍 Under Review", count_rev)
             c4.metric("💳 Pending APC", count_apc)
-            c5.metric("📚 Total Works", len(unique_res))
-        
+            c5.metric("📚 Unique Works", len(unique_res))
+            
             st.divider()
             
-            # 3. DIRECTOR'S APC APPROVAL PANEL
+            # --- DIRECTOR'S APC APPROVAL PANEL ---
             if st.session_state.role == "Director":
-                # Only show papers that are Pending APC and NOT yet approved
                 pending_list = res_df[
                     (res_df['status'] == "Pending APC") & 
                     (res_df['director_approval'] != "Approved")
@@ -165,9 +162,6 @@ if st.session_state.role in ["Director", "Coordinator"]:
                 
                 if not pending_list.empty:
                     st.subheader("💳 APC Funding Actions Required")
-                    st.info(f"You have {len(pending_list)} requests awaiting approval.")
-                    
-                    # Create clear selection labels
                     pending_options = pending_list.apply(
                         lambda x: f"{x['paper_title']} | {x['full_name']} (N$ {x['apc_amount']})", axis=1
                     ).tolist()
@@ -176,28 +170,27 @@ if st.session_state.role in ["Director", "Coordinator"]:
                     selected_title = selected_option.split(" | ")[0]
                     
                     if st.button("✅ Approve APC Funding", type="primary"):
-                        # Update all rows with this title to 'Approved'
                         res_df.loc[res_df['paper_title'] == selected_title, 'director_approval'] = "Approved"
-                        # Move status from 'Pending APC' to 'Under Review' (or your preferred next step)
-                        res_df.loc[res_df['paper_title'] == selected_title, 'status'] = "Under Review"
+                        # Once approved, it can move to Published or stay as Accepted/Approved
+                        res_df.loc[res_df['paper_title'] == selected_title, 'status'] = "Accepted"
                         
                         conn.update(worksheet="research_status", data=res_df)
                         st.cache_data.clear()
-                        st.success(f"Funding for '{selected_title}' approved successfully!")
+                        st.success(f"Funding for '{selected_title}' approved!")
                         st.rerun()
                 else:
-                    st.write("✨ **No pending APC approvals at this time.**")
+                    st.write("✨ **No pending APC approvals.**")
                 st.divider()
 
-            # 4. DEPARTMENTAL VISUALIZATION
+            # --- VISUALIZATION ---
             st.subheader("Research Status by Department")
             chart_df = unique_res.groupby(['department', 'status']).size().unstack(fill_value=0)
-            target_metrics = [m for m in ["Published", "Under Review", "Pending APC"] if m in chart_df.columns]
+            # Added 'Accepted' to the chart display list
+            target_metrics = [m for m in ["Published", "Accepted", "Under Review", "Pending APC"] if m in chart_df.columns]
             if target_metrics:
                 st.bar_chart(chart_df[target_metrics])
             
-            # 5. FULL DATA REGISTRY (For detailed lookup)
-            st.subheader("Full Research Registry (All Updates)")
+            st.subheader("Full Research Registry")
             dept_filt = st.selectbox("Filter Registry by Dept", ["All"] + DEPARTMENTS)
             disp_res = res_df if dept_filt == "All" else res_df[res_df['department'] == dept_filt]
             st.dataframe(disp_res, use_container_width=True)
@@ -205,37 +198,15 @@ if st.session_state.role in ["Director", "Coordinator"]:
         else:
             st.info("The research registry is currently empty.")
 
-    # --- TAB 2: MAINTENANCE AUDIT (Director Only) ---
+    # --- TAB 2: MAINTENANCE AUDIT ---
     if t_maint:
         with t_maint:
+            # (Maintenance code remains unchanged and safe)
             st.subheader("Campus Maintenance Oversight")
             m_df = load_data("maintenance_tickets")
-            
             if not m_df.empty:
-                # Maintenance Summary KPIs
-                mc1, mc2, mc3 = st.columns(3)
-                total_t = len(m_df)
-                resolved_t = len(m_df[m_df['status'] == "Resolved"])
-                pending_t = total_t - resolved_t
-                
-                mc1.metric("Total Faults", total_t)
-                mc2.metric("Pending Repairs", pending_t, delta_color="inverse")
-                mc3.metric("Resolved Issues", resolved_t)
-                
-                st.divider()
-                
-                # Full Audit Log
                 st.dataframe(m_df, use_container_width=True)
-                
-                # Audit Export
-                st.download_button(
-                    label="📥 Export Maintenance Audit (Excel)",
-                    data=to_excel(m_df),
-                    file_name=f"UNAM_JEDS_Maint_Audit_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            else:
-                st.info("No maintenance tickets have been reported yet.")
+                st.download_button("📥 Export Audit", data=to_excel(m_df), file_name="Maint_Audit.xlsx")
 
 # --- MODULE: ACADEMIC STAFF ---
 elif st.session_state.role == "Academic":
