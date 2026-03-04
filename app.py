@@ -6,7 +6,7 @@ import hashlib
 from io import BytesIO
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="UNAM JEDS Director Dashboard", layout="wide", page_icon="🏫")
+st.set_page_config(page_title="UNAM JEDS Director Dashboard", layout="wide", page_icon="📝")
 
 # --- DATABASE CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
