@@ -143,8 +143,8 @@ if st.session_state.role in ["Director", "Coordinator"]:
         
         if not res_df.empty:
             st.subheader("Departmental Publications")
-            chart_data = res_df[res_df['status'] == "Published"].groupby('department').size().reset_index(name='Counts')
-            st.bar_chart(data=chart_data, x='department', y='Counts')
+            #chart_data = res_df[res_df['status'] == "Published"].groupby('department').size().reset_index(name='Counts')
+            #st.bar_chart(data=chart_data, x='department', y='Counts')
 
         search_dept = st.selectbox("Filter by Department", ["All"] + DEPARTMENTS)
         display_df = res_df if search_dept == "All" else res_df[res_df['department'] == search_dept]
