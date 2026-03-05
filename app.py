@@ -138,20 +138,21 @@ if st.session_state.role in ["Director", "Coordinator"]:
             unique_res = res_df.sort_values('timestamp', ascending=False).drop_duplicates('paper_title')
             
             # --- UPDATED ANALYTICS ROW (NOW WITH ACCEPTED) ---
-            c1, c2, c3, c4, c5 = st.columns(5)
+            c1, c2, c3, c4, c5, C6 = st.columns(6)
             
             count_pub = len(unique_res[unique_res['status'] == "Published"])
             count_acc = len(unique_res[unique_res['status'] == "Accepted"])
-            count_acc = len(unique_res[unique_res['status'] == "Rejected"])
+            count_rej = len(unique_res[unique_res['status'] == "Rejected"])
             count_rev = len(unique_res[unique_res['status'] == "Under Review"])
             count_apc = len(unique_res[unique_res['status'] == "Pending APC"])
+        
             
             c1.metric("✅ Published", count_pub)
             c2.metric("🎉 Accepted", count_acc)
-            c3.metric("❌ Rejected", count_acc)
+            c3.metric("❌ Rejected", count_rej)
             c4.metric("🔍 Under Review", count_rev)
             c5.metric("💳 Pending APC", count_apc)
-            c6.metric("📚 Unique Works", len(unique_res))
+            c6.metric("📚 Total Works", len(unique_res))
             
             st.divider()
             
