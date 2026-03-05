@@ -138,7 +138,7 @@ if st.session_state.role in ["Director", "Coordinator"]:
             unique_res = res_df.sort_values('timestamp', ascending=False).drop_duplicates('paper_title')
             
             # --- UPDATED ANALYTICS ROW (NOW WITH ACCEPTED) ---
-            c1, c2, c3, c4, c5, C6 = st.columns(6)
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
             
             count_pub = len(unique_res[unique_res['status'] == "Published"])
             count_acc = len(unique_res[unique_res['status'] == "Accepted"])
